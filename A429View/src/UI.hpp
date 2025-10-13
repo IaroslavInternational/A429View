@@ -10,6 +10,14 @@
 #include <mutex>
 #include <functional>
 
+typedef struct
+{
+	std::vector<long long> delta_buf;
+	long long delta;
+	std::chrono::steady_clock::time_point stamp;
+	a429_word_t word;
+} a429_flow_t;
+
 class UI
 {
 public:
@@ -36,5 +44,5 @@ private:
 	fault_t			  fault;				  // Структура состояния подключения к порту
 	std::atomic<bool> ThreadsAllowed = false; // Флаг прерывания потоков RxThread и CmdThread
 private:
-	std::map<uint32_t, std::map<uint32_t, a429_word_t>> labels;
+	std::map<uint32_t, std::map<uint32_t, a429_flow_t>> labels;
 };

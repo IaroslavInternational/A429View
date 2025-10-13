@@ -4,14 +4,20 @@
 #include "Core/lib.hpp"
 #include "../imgui/imgui_internal.h"
 
+#include <chrono>
 #include <sstream>
 #include <fstream>
-#include <chrono>
 #include <filesystem>
+#include <numeric>
 
 #pragma execution_character_set("utf-8")  // Для отображения на русском языке
 
 using namespace std::literals::chrono_literals;
+
+static long long avg(std::vector<long long> const& v)
+{
+	return v.empty() ? 0.0 : std::accumulate(v.begin(), v.end(), 0) / v.size();
+}
 
 UI::UI()
 {
@@ -130,7 +136,7 @@ void UI::ShowTable()
 		static const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
 			ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
 
-		if (ImGui::BeginTable("##table", 6, flags, ImVec2(-1, 0)))
+		if (ImGui::BeginTable("##table", 7, flags, ImVec2(-1, 0)))
 		{
 			ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
 			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
@@ -138,12 +144,13 @@ void UI::ShowTable()
 			ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
 			ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
 			ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+			ImGui::TableSetupColumn("Period");
 			ImGui::TableHeadersRow();
 			ImPlot::PushColormap(ImPlotColormap_Viridis);
 
 			for (auto& [channel, flow] : labels)
 			{
-				for (auto& [label, word] : flow)
+				for (auto& [label, dt] : flow)
 				{
 					ImGui::TableNextRow();
 					ImGui::TableSetColumnIndex(0);
@@ -161,28 +168,35 @@ void UI::ShowTable()
 					oss.clear();
 
 					ImGui::TableSetColumnIndex(2);
-					oss << "0x" << std::hex << std::uppercase << word.bits.data;
+					oss << "0x" << std::hex << std::uppercase << dt.word.bits.data;
 					ImGui::Text(oss.str().c_str());
 
 					oss.str("");
 					oss.clear();
 
 					ImGui::TableSetColumnIndex(3);
-					oss << "0x" << std::hex << std::uppercase << word.bits.sdi;
+					oss << "0x" << std::hex << std::uppercase << dt.word.bits.sdi;
 					ImGui::Text(oss.str().c_str());
 
 					oss.str("");
 					oss.clear();
 
 					ImGui::TableSetColumnIndex(4);
-					oss << "0x" << std::hex << std::uppercase << word.bits.ssm;
+					oss << "0x" << std::hex << std::uppercase << dt.word.bits.ssm;
 					ImGui::Text(oss.str().c_str());
 
 					oss.str("");
 					oss.clear();
 
 					ImGui::TableSetColumnIndex(5);
-					oss << word.bits.parity;
+					oss << dt.word.bits.parity;
+					ImGui::Text(oss.str().c_str());
+
+					oss.str("");
+					oss.clear();
+
+					ImGui::TableSetColumnIndex(6);
+					oss << std::dec << dt.delta << "ms";
 					ImGui::Text(oss.str().c_str());
 
 					oss.str("");
@@ -288,7 +302,7 @@ void UI::ReceiveData()
 
 		DataProc(&buf);
 
-		std::this_thread::sleep_for(10ms);
+		std::this_thread::sleep_for(1ms);
 	}
 }
 
@@ -296,13 +310,15 @@ void UI::DataProc(buffer_t* buf)
 {
 	uint32_t    word;
 	uint32_t    channel;
-	a429_word_t a429;
+	a429_flow_t a429;
 
 	std::string str{ buf->begin(), buf->end() };
 	int pos;
 
 	std::stringstream ss;
 
+	std::chrono::steady_clock::time_point stamp = std::chrono::steady_clock::now();
+	
 	while (str.size() > 0 && ThreadsAllowed)
 	{
 		pos = str.find('|');
@@ -315,11 +331,19 @@ void UI::DataProc(buffer_t* buf)
 			channel = std::stoi(std::string(str.begin() + pos - 1, str.begin() + pos));
 
 			str = std::string(str.begin() + pos + 1, str.end());
-
-			a429.value = word;
+				
+			a429.word.value = word;
 
 			mtx.lock();
-			labels[channel][a429.bits.label] = a429;
+			labels[channel][a429.word.bits.label].word = a429.word;
+			labels[channel][a429.word.bits.label].delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - labels[channel][a429.word.bits.label].stamp).count());
+			labels[channel][a429.word.bits.label].stamp = stamp;
+
+			if (labels[channel][a429.word.bits.label].delta_buf.size() == 10)
+			{
+				labels[channel][a429.word.bits.label].delta = avg(labels[channel][a429.word.bits.label].delta_buf);
+				labels[channel][a429.word.bits.label].delta_buf.clear();
+			}
 			mtx.unlock();
 
 			ss.str("");
