@@ -2,7 +2,7 @@
 
 #include "CoreLog.hpp"
 #include "Core/lib.hpp"
-#include "../imgui/imgui_internal.h"
+#include <imgui_internal.h>
 
 #include <chrono>
 #include <sstream>
@@ -125,6 +125,124 @@ void UI::ShowLeftPanel()
 	ImGui::End();
 }
 
+static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
+{
+	std::ostringstream oss;
+
+	for (auto& [channel, flow] : buffer)
+	{
+		for (auto& [label, frame] : flow)
+		{
+			ImGui::TableNextRow();
+
+			// Создаем уникальный ID для строки
+			ImGui::PushID(static_cast<int>(channel * 1000 + label));
+
+			ImGui::TableSetColumnIndex(0);
+			oss << name << channel + 1;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(1);
+			oss << std::oct << label;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(2);
+			oss << "0x" << std::hex << std::uppercase << frame.word.bits.sdi;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(3);
+			oss << "0x" << std::hex << std::uppercase << frame.word.bits.data;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(4);
+			oss << "0x" << std::hex << std::uppercase << frame.word.bits.ssm;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(5);
+			oss << frame.word.bits.parity;
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(6);
+			oss << std::dec << frame.delta << " ms";
+			ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Selectable("##row_selectable", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+
+			// Открываем попап при правом клике на строку
+			if (ImGui::BeginPopupContextItem("##row_context"))
+			{
+				constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
+					ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+
+				// ТАБЛИЦА БИТОВ
+				if (ImGui::BeginTable("##bit_table", 32, flags, ImVec2(-1, 0)))
+				{
+					// Устанавливаем одинаковую ширину для всех колонок
+					for (int i = 0; i < 32; i++)
+					{
+						ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 20.0f); // Фиксированная ширина
+					}
+
+					// Заголовок - номера битов 
+					ImGui::TableNextRow();
+					for (int i = 31; i >= 0; i--)
+					{
+						ImGui::TableSetColumnIndex(31 - i);
+						ImGui::Text("%d", i);
+					}
+
+					// Значения битов
+					ImGui::TableNextRow();
+					for (int i = 31; i >= 0; i--)
+					{
+						ImGui::TableSetColumnIndex(31 - i);
+						bool bit_value = (frame.word.value >> i) & 1;
+
+						// Цвет для разных типов битов
+						if (i == 31)
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.2f, 0.2f, 1)); // Parity - красный
+						}
+						else if (i >= 29)
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.8f, 0.2f, 1)); // SSM - оранжевый
+						}
+						else if (i >= 10)
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 1, 0.2f, 1)); // Data - зеленый
+						}
+						else if (i >= 8)
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1, 1)); // SDI - голубой
+						}
+						else
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1)); // Label - белый
+						}
+
+						ImGui::Text("%d", bit_value);
+						ImGui::PopStyleColor();
+					}
+
+					ImGui::EndTable();
+				}
+
+				ImGui::EndPopup();
+			}
+
+			ImGui::PopID();
+		}
+	}
+}
+
 void UI::ShowTable()
 {
 	std::ostringstream oss;
@@ -136,142 +254,63 @@ void UI::ShowTable()
 		static const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
 			ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
 
-		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
-
-		if (ImGui::BeginTable("##table", 7, flags, ImVec2(-1, 0)))
+		if (ImGui::BeginTabBar("Buffers"))
 		{
-			ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);			
-			ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-			ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-			ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-			ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-			ImGui::TableSetupColumn("Period");
-			ImGui::TableHeadersRow();
-			ImPlot::PushColormap(ImPlotColormap_Viridis);
-
-			for (auto& [channel, flow] : labels)
+			if (ImGui::BeginTabItem("RX Buffer"))
 			{
-				for (auto& [label, dt] : flow)
+				ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+
+				if (ImGui::BeginTable("##table_rx", 7, flags, ImVec2(-1, 0)))
 				{
-					ImGui::TableNextRow();
+					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+					ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Period");
+					ImGui::TableHeadersRow();
 
-					// Создаем уникальный ID для строки
-					ImGui::PushID(static_cast<int>(channel * 1000 + label));
+					RenderBufItems("RX", rx_labels);
 
-					ImGui::TableSetColumnIndex(0);
-					oss << "RX" << channel + 1;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(1);
-					oss << std::oct << label;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(2);
-					oss << "0x" << std::hex << std::uppercase << dt.word.bits.sdi;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(3);
-					oss << "0x" << std::hex << std::uppercase << dt.word.bits.data;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(4);
-					oss << "0x" << std::hex << std::uppercase << dt.word.bits.ssm;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(5);
-					oss << dt.word.bits.parity;
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-
-					ImGui::TableSetColumnIndex(6);
-					oss << std::dec << dt.delta << " ms";
-					ImGui::Text("%s", oss.str().c_str());
-					oss.str(""); oss.clear();
-			
-					ImGui::TableSetColumnIndex(0);
-					ImGui::Selectable("##row_selectable", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
-
-					// Открываем попап при правом клике на строку
-					if (ImGui::BeginPopupContextItem("##row_context"))
-					{
-						constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
-							ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
-
-						// ТАБЛИЦА БИТОВ С ОДИНАКОВЫМ РАЗМЕРОМ ЯЧЕЕК
-						if (ImGui::BeginTable("##bit_table", 32, flags, ImVec2(-1, 0)))
-						{
-							// Устанавливаем одинаковую ширину для всех колонок
-							for (int i = 0; i < 32; i++) 
-							{
-								ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 20.0f); // Фиксированная ширина
-							}
-
-							// Заголовок - номера битов (одинаковый размер ячеек)
-							ImGui::TableNextRow();
-							for (int i = 31; i >= 0; i--)
-							{
-								ImGui::TableSetColumnIndex(31 - i);
-								ImGui::Text("%d", i);
-							}
-
-							// Значения битов
-							ImGui::TableNextRow();
-							for (int i = 31; i >= 0; i--)
-							{
-								ImGui::TableSetColumnIndex(31 - i);
-								bool bit_value = (dt.word.value >> i) & 1;
-
-								// Цвет для разных типов битов
-								if (i == 31) 
-								{
-									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.2f, 0.2f, 1)); // Parity - красный
-								}
-								else if (i >= 29) 
-								{
-									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.8f, 0.2f, 1)); // SSM - оранжевый
-								}
-								else if (i >= 10) 
-								{
-									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 1, 0.2f, 1)); // Data - зеленый
-								}
-								else if (i >= 8) 
-								{
-									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1, 1)); // SDI - голубой
-								}
-								else 
-								{
-									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1)); // Label - белый
-								}
-
-								ImGui::Text("%d", bit_value);
-								ImGui::PopStyleColor();
-							}
-
-							ImGui::EndTable();
-						}
-
-						ImGui::EndPopup();
-					}
-
-					ImGui::PopID();
+					ImGui::EndTable();
 				}
-			}
-			
-			ImPlot::PopColormap();
-			ImGui::EndTable();
-		}
-		
-		ImGui::PopStyleVar(2);
-	}
-	ImGui::PopStyleColor();
 
+				ImGui::PopStyleVar(2);				
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("TX Buffer"))
+			{
+				ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+
+				if (ImGui::BeginTable("##table_tx", 7, flags, ImVec2(-1, 0)))
+				{
+					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+					ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Period");
+					ImGui::TableHeadersRow();
+
+					RenderBufItems("TX", tx_labels);
+
+					ImGui::EndTable();
+				}
+
+				ImGui::PopStyleVar(2);
+				ImGui::EndTabItem();
+			}
+		}
+
+		ImGui::EndTabBar();
+		ImGui::PopStyleColor();
+	}
+	
 	ImGui::End();
 }
 
@@ -350,7 +389,8 @@ void UI::CloseConnection()
 	port.Close();	
 	RxThread = std::future<void>();
 
-	labels.clear();
+	rx_labels.clear();
+	tx_labels.clear();
 }
 
 void UI::ReceiveData()
@@ -387,6 +427,7 @@ void UI::DataProc(buffer_t* buf)
 	uint32_t    word;
 	uint32_t    channel;
 	a429_flow_t a429;
+	a429_buf_t* current_buffer = nullptr;
 
 	std::string str{ buf->begin(), buf->end() };
 	int pos;
@@ -394,12 +435,26 @@ void UI::DataProc(buffer_t* buf)
 	std::stringstream ss;
 
 	std::chrono::steady_clock::time_point stamp = std::chrono::steady_clock::now();
-	
+
 	while (str.size() > 0 && ThreadsAllowed)
 	{
-		pos = str.find('|');
+		pos = str.find_first_of("|_"); // Ищем любой из разделителей
 
-		if (pos != -1)
+		if (pos == std::string::npos) // Если разделителей нет - выходим
+		{
+			break;
+		}
+
+		if (str[pos] == '|')
+		{
+			current_buffer = &rx_labels;
+		}
+		else if (str[pos] == '_')
+		{
+			current_buffer = &tx_labels;
+		}
+
+		if (current_buffer != nullptr && pos > 0) // Добавил проверку pos > 0
 		{
 			ss << std::string(str.begin(), str.begin() + pos - 1);
 			ss >> word;
@@ -407,23 +462,32 @@ void UI::DataProc(buffer_t* buf)
 			channel = std::stoi(std::string(str.begin() + pos - 1, str.begin() + pos));
 
 			str = std::string(str.begin() + pos + 1, str.end());
-				
+
 			a429.word.value = word;
 
 			mtx.lock();
-			labels[channel][a429.word.bits.label].word = a429.word;
-			labels[channel][a429.word.bits.label].delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - labels[channel][a429.word.bits.label].stamp).count());
-			labels[channel][a429.word.bits.label].stamp = stamp;
+			(*current_buffer)[channel][a429.word.bits.label].word = a429.word;
 
-			if (labels[channel][a429.word.bits.label].delta_buf.size() > 2)
+			auto& data = (*current_buffer)[channel][a429.word.bits.label];
+			if (data.stamp.time_since_epoch().count() > 0) // Проверка инициализации
 			{
-				labels[channel][a429.word.bits.label].delta = avg(labels[channel][a429.word.bits.label].delta_buf);
-				labels[channel][a429.word.bits.label].delta_buf.erase(labels[channel][a429.word.bits.label].delta_buf.begin());			
+				data.delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - data.stamp).count());
+			}
+			data.stamp = stamp;
+
+			if (data.delta_buf.size() > 2)
+			{
+				data.delta = avg(data.delta_buf);
+				data.delta_buf.erase(data.delta_buf.begin());
 			}
 			mtx.unlock();
 
 			ss.str("");
 			ss.clear();
+		}
+		else
+		{
+			break; 
 		}
 	}
 }

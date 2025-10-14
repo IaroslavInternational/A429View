@@ -223,11 +223,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_NCHITTEST:
     {
         // ѕозвол€ем перемещать окно за любую область
-        LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
+        /*LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
         if (hit == HTCLIENT) {
             return HTCAPTION; //  лиентска€ область = заголовок дл€ перемещени€
         }
-        return hit;
+        return hit;*/
     }
 
     case WM_SYSCOMMAND:

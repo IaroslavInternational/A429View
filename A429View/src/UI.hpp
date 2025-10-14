@@ -18,6 +18,8 @@ typedef struct
 	a429_word_t word;
 } a429_flow_t;
 
+using a429_buf_t = std::map<uint32_t, std::map<uint32_t, a429_flow_t>>;
+
 class UI
 {
 public:
@@ -44,5 +46,6 @@ private:
 	fault_t			  fault;				  // Структура состояния подключения к порту
 	std::atomic<bool> ThreadsAllowed = false; // Флаг прерывания потоков RxThread и CmdThread
 private:
-	std::map<uint32_t, std::map<uint32_t, a429_flow_t>> labels;
+	a429_buf_t rx_labels;
+	a429_buf_t tx_labels;
 };
