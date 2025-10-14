@@ -151,7 +151,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\lib.hpp" />
-    <ClInclude Include="src\Sensor.hpp" />
     <ClInclude Include="src\ComPort.hpp" />
     <ClInclude Include="src\CoreLog.hpp" />
     <ClInclude Include="src\Core\App.hpp" />

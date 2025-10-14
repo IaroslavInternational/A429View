@@ -56,7 +56,7 @@ bool ComPort::Open(const std::string& portName, uint32_t speed, uint8_t byte_siz
 	timeouts.WriteTotalTimeoutConstant   = 50;
 	timeouts.WriteTotalTimeoutMultiplier = 10;
 
-	CHECK_ERROR(SetCommTimeouts(COM, &timeouts) == 0, isActive, "Set timeouts failed");
+	CHECK_ERROR(!SetCommTimeouts(COM, &timeouts), isActive, "Set timeouts failed");
 
 	SetBufferSize(10000);
 
@@ -94,19 +94,39 @@ void ComPort::TxData(int8_t* data)
 
 bool ComPort::RxData(buffer_t* buffer)
 {
-	ClearBuffer();
-	buffer->resize(buffer_size);
+	// Проверяем доступные данные
+	DWORD available = 0;
+	DWORD errors;
+	COMSTAT status;
 
-	if (!ReadFile(COM, buffer->data(), buffer_size, &readSize, 0))
+	if (!ClearCommError(COM, &errors, &status)) 
 	{
 		return false;
 	}
 
-	if (readSize > 0)
+	available = status.cbInQue;
+	if (available == 0) 
 	{
-		*buffer = { buffer->begin(), buffer->begin() + readSize };
+		return false;  // Нет данных
+	}
+
+	// Ограничиваем размер чтения
+	DWORD to_read = (available > buffer_size) ? buffer_size : available;
+
+	buffer->resize(to_read);
+
+	if (!ReadFile(COM, buffer->data(), to_read, &readSize, NULL)) 
+	{
+		return false;
+	}
+
+	if (readSize > 0) 
+	{
+		buffer->resize(readSize);
 		return true;
 	}
+
+	return false;
 }
 
 bool ComPort::IsOpen() const
@@ -122,7 +142,10 @@ void ComPort::SetBufferSize(uint64_t buffer_size)
 
 void ComPort::ClearBuffer()
 {
-	//buffer.clear();
+	if (COM && COM != INVALID_HANDLE_VALUE) 
+	{
+		PurgeComm(COM, PURGE_RXCLEAR | PURGE_RXABORT);
+	}
 }
 
 std::string ComPort::GetName() const

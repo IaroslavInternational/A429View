@@ -6,8 +6,27 @@
 
 #pragma comment(lib, "d3d11.lib")
 
+static ID3D11Device* g_pd3dDevice = nullptr;
+static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
+static IDXGISwapChain* g_pSwapChain = nullptr;
+static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
+static bool g_SwapChainOccluded = false;
+
 // Forward declarations of helper functions
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+static void CreateRenderTarget()
+{
+    ID3D11Texture2D* pBackBuffer;
+    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+    pBackBuffer->Release();
+}
+
+static void CleanupRenderTarget()
+{
+    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
+}
 
 Window::Window(const std::wstring& name, int x, int y)
 {
@@ -15,9 +34,9 @@ Window::Window(const std::wstring& name, int x, int y)
 
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
-    wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
+    wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"WinClass", nullptr };
     ::RegisterClassExW(&wc);
-    hwnd = ::CreateWindowW(wc.lpszClassName, name.c_str(), (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX), 100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
+    hwnd = ::CreateWindowW(wc.lpszClassName, name.c_str(), (WS_OVERLAPPEDWINDOW), 100, 100, x, y, nullptr, nullptr, wc.hInstance, nullptr);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D())
@@ -166,19 +185,6 @@ void Window::CleanupDeviceD3D()
     if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
 }
 
-void Window::CreateRenderTarget()
-{
-    ID3D11Texture2D* pBackBuffer;
-    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
-    pBackBuffer->Release();
-}
-
-void Window::CleanupRenderTarget()
-{
-    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
-}
-
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -191,15 +197,48 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
+        {
+            g_SwapChainOccluded = true;
             return 0;
+        }
+
+        // ќбработка изменени€ размера окна
+        if (g_pd3dDevice != nullptr && wParam != SIZE_MINIMIZED)
+        {
+            CleanupRenderTarget();
+            g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
+            CreateRenderTarget();
+        }
         return 0;
+
+    case WM_GETMINMAXINFO:
+    {
+        // ќграничиваем минимальный размер окна
+        MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
+        minMaxInfo->ptMinTrackSize.x = 1000;
+        minMaxInfo->ptMinTrackSize.y = 800;
+        return 0;
+    }
+
+    case WM_NCHITTEST:
+    {
+        // ѕозвол€ем перемещать окно за любую область
+        LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
+        if (hit == HTCLIENT) {
+            return HTCAPTION; //  лиентска€ область = заголовок дл€ перемещени€
+        }
+        return hit;
+    }
+
     case WM_SYSCOMMAND:
         if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
             return 0;
         break;
+
     case WM_DESTROY:
         ::PostQuitMessage(0);
         return 0;
     }
+
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }

@@ -6,7 +6,7 @@ int main()
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR pArgs, INT)
 #endif
 {
-	App app(L"A429", 1280, 650);
+	App app(L"A429", 1900, 1000);
 
 	while (!false)
 	{

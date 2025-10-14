@@ -59,7 +59,7 @@ void UI::Render(float dt)
 	SetPanelSizeAndPosition(0, 0.25f, 1.0f, 0.0f, 0.0f);
 	ShowLeftPanel();
 
-	SetPanelSizeAndPosition(0, 0.75f, 0.5f, 0.25f, 0.0f);
+	SetPanelSizeAndPosition(0, 0.75f, 0.95f, 0.25f, 0.0f);
 	ShowTable();
 }
 
@@ -105,7 +105,7 @@ void UI::ShowLeftPanel()
 					if (ImGui::Button("Подключить"))
 					{				
 						ConnectionThread = std::async(std::launch::async, &UI::TryConnection, this, names[item_current]);
-					}
+					}					
 				}
 				else
 				{
@@ -136,12 +136,15 @@ void UI::ShowTable()
 		static const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
 			ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
 
+		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+
 		if (ImGui::BeginTable("##table", 7, flags, ImVec2(-1, 0)))
 		{
 			ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-			ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);			
 			ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+			ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 			ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
 			ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
 			ImGui::TableSetupColumn("Period");
@@ -153,60 +156,119 @@ void UI::ShowTable()
 				for (auto& [label, dt] : flow)
 				{
 					ImGui::TableNextRow();
+
+					// Создаем уникальный ID для строки
+					ImGui::PushID(static_cast<int>(channel * 1000 + label));
+
 					ImGui::TableSetColumnIndex(0);
 					oss << "RX" << channel + 1;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(1);
 					oss << std::oct << label;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(2);
-					oss << "0x" << std::hex << std::uppercase << dt.word.bits.data;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					oss << "0x" << std::hex << std::uppercase << dt.word.bits.sdi;
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(3);
-					oss << "0x" << std::hex << std::uppercase << dt.word.bits.sdi;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					oss << "0x" << std::hex << std::uppercase << dt.word.bits.data;
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(4);
 					oss << "0x" << std::hex << std::uppercase << dt.word.bits.ssm;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(5);
 					oss << dt.word.bits.parity;
-					ImGui::Text(oss.str().c_str());
-
-					oss.str("");
-					oss.clear();
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
 
 					ImGui::TableSetColumnIndex(6);
-					oss << std::dec << dt.delta << "ms";
-					ImGui::Text(oss.str().c_str());
+					oss << std::dec << dt.delta << " ms";
+					ImGui::Text("%s", oss.str().c_str());
+					oss.str(""); oss.clear();
+			
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Selectable("##row_selectable", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
 
-					oss.str("");
-					oss.clear();
+					// Открываем попап при правом клике на строку
+					if (ImGui::BeginPopupContextItem("##row_context"))
+					{
+						constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
+							ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+
+						// ТАБЛИЦА БИТОВ С ОДИНАКОВЫМ РАЗМЕРОМ ЯЧЕЕК
+						if (ImGui::BeginTable("##bit_table", 32, flags, ImVec2(-1, 0)))
+						{
+							// Устанавливаем одинаковую ширину для всех колонок
+							for (int i = 0; i < 32; i++) 
+							{
+								ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 20.0f); // Фиксированная ширина
+							}
+
+							// Заголовок - номера битов (одинаковый размер ячеек)
+							ImGui::TableNextRow();
+							for (int i = 31; i >= 0; i--)
+							{
+								ImGui::TableSetColumnIndex(31 - i);
+								ImGui::Text("%d", i);
+							}
+
+							// Значения битов
+							ImGui::TableNextRow();
+							for (int i = 31; i >= 0; i--)
+							{
+								ImGui::TableSetColumnIndex(31 - i);
+								bool bit_value = (dt.word.value >> i) & 1;
+
+								// Цвет для разных типов битов
+								if (i == 31) 
+								{
+									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.2f, 0.2f, 1)); // Parity - красный
+								}
+								else if (i >= 29) 
+								{
+									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.8f, 0.2f, 1)); // SSM - оранжевый
+								}
+								else if (i >= 10) 
+								{
+									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 1, 0.2f, 1)); // Data - зеленый
+								}
+								else if (i >= 8) 
+								{
+									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1, 1)); // SDI - голубой
+								}
+								else 
+								{
+									ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1)); // Label - белый
+								}
+
+								ImGui::Text("%d", bit_value);
+								ImGui::PopStyleColor();
+							}
+
+							ImGui::EndTable();
+						}
+
+						ImGui::EndPopup();
+					}
+
+					ImGui::PopID();
 				}
 			}
-
+			
 			ImPlot::PopColormap();
 			ImGui::EndTable();
 		}
+		
+		ImGui::PopStyleVar(2);
 	}
 	ImGui::PopStyleColor();
 
@@ -287,20 +349,34 @@ void UI::CloseConnection()
 
 	port.Close();	
 	RxThread = std::future<void>();
+
+	labels.clear();
 }
 
 void UI::ReceiveData()
 {
 	buffer_t buf;
 
-	while(ThreadsAllowed)
-	{
-		while (!port.RxData(&buf))
-		{
-			
-		}
+	uint32_t empty_reads = 0;
+	constexpr uint32_t MAX_EMPTY_READS = 100; // После 100 пустых чтений - очистка
 
-		DataProc(&buf);
+	while (ThreadsAllowed)
+	{
+		if (port.RxData(&buf)) 
+		{
+			DataProc(&buf);
+			empty_reads = 0;  // Сброс счетчика при успешном чтении
+		}
+		else 
+		{
+			empty_reads++;
+
+			if (empty_reads > MAX_EMPTY_READS) 
+			{
+				port.ClearBuffer();  // Периодическая очистка
+				empty_reads = 0;
+			}
+		}
 
 		std::this_thread::sleep_for(1ms);
 	}
@@ -339,10 +415,10 @@ void UI::DataProc(buffer_t* buf)
 			labels[channel][a429.word.bits.label].delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - labels[channel][a429.word.bits.label].stamp).count());
 			labels[channel][a429.word.bits.label].stamp = stamp;
 
-			if (labels[channel][a429.word.bits.label].delta_buf.size() == 10)
+			if (labels[channel][a429.word.bits.label].delta_buf.size() > 2)
 			{
 				labels[channel][a429.word.bits.label].delta = avg(labels[channel][a429.word.bits.label].delta_buf);
-				labels[channel][a429.word.bits.label].delta_buf.clear();
+				labels[channel][a429.word.bits.label].delta_buf.erase(labels[channel][a429.word.bits.label].delta_buf.begin());			
 			}
 			mtx.unlock();
 

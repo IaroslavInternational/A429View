@@ -110,9 +110,6 @@
     <ClInclude Include="src\ComPort.hpp">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="src\Sensor.hpp">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\lib.hpp">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>

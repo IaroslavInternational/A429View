@@ -24,16 +24,16 @@ public:
 private:
 	bool CreateDeviceD3D();
 	void CleanupDeviceD3D();
-	void CreateRenderTarget();
-	void CleanupRenderTarget();
+	//void CreateRenderTarget();
+	//void CleanupRenderTarget();
 private:
 	WNDCLASSEXW wc;
 	HWND hwnd;
 
-	ID3D11Device*		    g_pd3dDevice = nullptr;
+	/*ID3D11Device* g_pd3dDevice = nullptr;
 	ID3D11DeviceContext*    g_pd3dDeviceContext = nullptr;
 	IDXGISwapChain*		    g_pSwapChain = nullptr;
 	bool                    g_SwapChainOccluded = false;
-	ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
+	ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;*/
 };
 
