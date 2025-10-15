@@ -41,9 +41,8 @@ private:
 	std::mutex          mtx;		      // Mutex для управления tasks
 	std::future<void>   ConnectionThread; // Асинхронный поток подключения к порту
 	std::future<void>   RxThread;         // Асинхронный поток приёма данных
-	task_list_t	        tasks;            // Список команд
 private:
-	fault_t			  fault;				  // Структура состояния подключения к порту
+	fault_t			  fault{};				  // Структура состояния подключения к порту
 	std::atomic<bool> ThreadsAllowed = false; // Флаг прерывания потоков RxThread и CmdThread
 private:
 	a429_buf_t rx_labels;

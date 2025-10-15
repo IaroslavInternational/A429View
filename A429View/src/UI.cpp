@@ -25,6 +25,7 @@ UI::UI()
 	ImGui::GetStyle().TabBorderSize    = 1.0f;
 	ImGui::GetStyle().TabBarBorderSize = 1.0f;
 	ImGui::GetStyle().FrameRounding    = 8.0f;
+	ImGui::GetStyle().FramePadding.x   = 10.0f;
 	ImGui::GetStyle().GrabRounding     = 5.0f;
 
 	ImVec4* colors = ImGui::GetStyle().Colors;
@@ -46,7 +47,7 @@ UI::UI()
 	colors[ImGuiCol_Header]         = ImVec4(0.42f, 0.13f, 0.13f, 0.31f);
 	colors[ImGuiCol_HeaderHovered]  = ImVec4(0.22f, 0.05f, 0.05f, 0.80f);
 	colors[ImGuiCol_HeaderActive]   = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
-	colors[ImGuiCol_PopupBg]        = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+	colors[ImGuiCol_PopupBg] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
 
 	LOG_H("UI");
 	LOG("Colors are set\n");
@@ -102,10 +103,17 @@ void UI::ShowLeftPanel()
 
 				if (!port.IsOpen())
 				{
-					if (ImGui::Button("Подключить"))
-					{				
-						ConnectionThread = std::async(std::launch::async, &UI::TryConnection, this, names[item_current]);
-					}					
+					if (names.size() != 0)
+					{
+						if (ImGui::Button("Подключить"))
+						{
+							ConnectionThread = std::async(std::launch::async, &UI::TryConnection, this, names[item_current]);
+						}
+					}
+					else
+					{
+						ImGui::Text("Нет доступных портов");
+					}
 				}
 				else
 				{
@@ -264,11 +272,11 @@ void UI::ShowTable()
 				if (ImGui::BeginTable("##table_rx", 7, flags, ImVec2(-1, 0)))
 				{
 					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-					ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-					ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-					ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-					ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Label",   ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("SDI",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Data",    ImGuiTableColumnFlags_WidthFixed, 100.0f);
+					ImGui::TableSetupColumn("SSM",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Parity",  ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Period");
 					ImGui::TableHeadersRow();
 
@@ -289,11 +297,11 @@ void UI::ShowTable()
 				if (ImGui::BeginTable("##table_tx", 7, flags, ImVec2(-1, 0)))
 				{
 					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-					ImGui::TableSetupColumn("SDI", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-					ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-					ImGui::TableSetupColumn("SSM", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-					ImGui::TableSetupColumn("Parity", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Label",   ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("SDI",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Data",    ImGuiTableColumnFlags_WidthFixed, 100.0f);
+					ImGui::TableSetupColumn("SSM",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Parity",  ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Period");
 					ImGui::TableHeadersRow();
 
@@ -318,20 +326,18 @@ void UI::SetPanelSizeAndPosition(int corner, float width, float height, float x_
 {
 	ImGuiIO& io = ImGui::GetIO();
 
-	float MenuHeight = 0.0f;
 	ImVec2 DispSize = io.DisplaySize;
 
 	float PanelW = round(DispSize.x * width);
 	float PanelH = DispSize.y * height;
 
-	ImVec2 PanelSize = ImVec2(
-		PanelW,
-		PanelH
-	);
+	ImVec2 PanelSize = ImVec2(PanelW, PanelH);
 
+	// Учитываем высоту меню при позиционировании
 	ImVec2 PanelPos = ImVec2(
 		(corner & 1) ? DispSize.x + round(DispSize.x * x_offset) : round(DispSize.x * x_offset),
-		(corner & 2) ? DispSize.y + MenuHeight + DispSize.y * y_offset : MenuHeight + DispSize.y * y_offset
+		(corner & 2) ? DispSize.y + DispSize.y * y_offset
+		: DispSize.y * y_offset
 	);
 
 	ImVec2 PanelPivot = ImVec2(
@@ -342,6 +348,7 @@ void UI::SetPanelSizeAndPosition(int corner, float width, float height, float x_
 	ImGui::SetNextWindowPos(PanelPos, ImGuiCond_Always, PanelPivot);
 	ImGui::SetNextWindowSize(PanelSize);
 }
+
 
 std::list<int> UI::getAvailablePorts()
 {

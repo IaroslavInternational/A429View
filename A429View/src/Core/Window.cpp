@@ -215,8 +215,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         // Ограничиваем минимальный размер окна
         MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
-        minMaxInfo->ptMinTrackSize.x = 1000;
-        minMaxInfo->ptMinTrackSize.y = 800;
+        minMaxInfo->ptMinTrackSize.x = 1300;
+        minMaxInfo->ptMinTrackSize.y = 1100;
         return 0;
     }
 

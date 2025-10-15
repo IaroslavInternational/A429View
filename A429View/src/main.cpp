@@ -6,9 +6,9 @@ int main()
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR pArgs, INT)
 #endif
 {
-	App app(L"A429", 1900, 1000);
+	App app(L"A429", 1300, 1100);
 
-	while (!false)
+	while (1)
 	{
 		app.Go();
 	}
