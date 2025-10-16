@@ -57,6 +57,8 @@ UI::UI()
 
 void UI::Render(float dt)
 {
+	//ImGui::ShowDemoWindow();
+
 	SetPanelSizeAndPosition(0, 0.25f, 1.0f, 0.0f, 0.0f);
 	ShowLeftPanel();
 
@@ -251,6 +253,25 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 	}
 }
 
+static void RenderBufRK(const std::string& name, const std::vector<std::string> bit_names, rk_flow_t flow)
+{
+	for (int i = 0; i < bit_names.size(); i++)
+	{
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		if (i == 0) ImGui::Text(name.c_str());
+
+		ImGui::TableSetColumnIndex(1);
+		ImGui::Text("%s", bit_names[i].c_str());
+
+		ImGui::TableSetColumnIndex(2);
+		ImGui::Text("%d", (flow.word >> i) & 1);
+
+		ImGui::TableSetColumnIndex(3);
+		if (i == 0) ImGui::Text("%d ms", flow.delta);
+	}
+}
+
 void UI::ShowTable()
 {
 	std::ostringstream oss;
@@ -311,6 +332,135 @@ void UI::ShowTable()
 				}
 
 				ImGui::PopStyleVar(2);
+				ImGui::EndTabItem();
+			}
+		
+			if (ImGui::BeginTabItem("RK Buffer"))
+			{
+
+				static std::vector<std::string> PANEL_BITS = 
+				{
+					"lh_ac_aux_pump_cmd", "lh_ac_main_pump_cmd", "lh_addt_pump_cmd",
+					"rh_ac_aux_pump_cmd", "rh_ac_main_pump_cmd", "rh_addt_pump_cmd",
+					"xfeed_on_ch1", "xfeed_on_ch2", "xfeed_off_ch1", "xfeed_off_ch2"
+				};
+
+				static std::vector<std::string> VALVES_BITS = 
+				{
+					"apu_vlv_closed",        // Бит 0
+					"apu_vlv_open",          // Бит 1
+					"ct_rv_open",            // Бит 2
+					"ct_rv_closed",          // Бит 3
+					"dv_open",               // Бит 4
+					"dv_closed",             // Бит 5
+					"l_eng_vlv_closed",      // Бит 6
+					"l_eng_vlv_open",        // Бит 7
+					"lh_rv_open",            // Бит 8
+					"lh_rv_closed",          // Бит 9
+					"r_eng_vlv_closed",      // Бит 10
+					"r_eng_vlv_open",        // Бит 11
+					"rh_rv_open",            // Бит 12
+					"rh_rv_closed",          // Бит 13
+					"xfeed_vlv_closed",      // Бит 14
+					"xfeed_vlv_open"         // Бит 15
+				};
+
+				// PUMPS_IN_REG_t - регистр состояния топливных насосов
+				static std::vector<std::string> PUMPS_BITS = 
+				{
+					"lh_addt_pump_normal_press",    // Бит 0
+					"lh_addt_pump_low_press",       // Бит 1
+					"rh_addt_pump_normal_press",    // Бит 2
+					"rh_addt_pump_low_press",       // Бит 3
+					"lh_ac_main_pump_normal_press", // Бит 4
+					"lh_ac_main_pump_low_press",    // Бит 5
+					"lh_ac_aux_pump_normal_press",  // Бит 6
+					"lh_ac_aux_pump_low_press",     // Бит 7
+					"rh_ac_main_pump_normal_press", // Бит 8
+					"rh_ac_main_pump_low_press",    // Бит 9
+					"rh_ac_aux_pump_normal_press",  // Бит 10
+					"rh_ac_aux_pump_low_press",     // Бит 11
+					"lh_addt_pump_powered",         // Бит 12
+					"rh_addt_pump_powered",         // Бит 13
+					"lh_ac_main_pump_powered",      // Бит 14
+					"lh_ac_aux_pump_powered",       // Бит 15
+					"rh_ac_main_pump_powered",      // Бит 16
+					"rh_ac_aux_pump_powered",       // Бит 17
+					"lh_eng_low_press",             // Бит 18
+					"lh_eng_norm_press",            // Бит 19
+					"rh_eng_low_press",             // Бит 20
+					"rh_eng_norm_press",            // Бит 21
+					"apu_low_press",                // Бит 22
+					"apu_norm_press"                // Бит 23
+				};
+
+				// ENG_FIRE_IN_REG_t - регистр пусков МСУ и пожарной защиты
+				static std::vector<std::string> ENG_FIRE_BITS = 
+				{
+					"l_eng_off_ch1",  // Бит 0
+					"l_eng_off_ch2",  // Бит 1
+					"l_eng_on_ch1",   // Бит 2
+					"l_eng_on_ch2",   // Бит 3
+					"r_eng_off_ch1",  // Бит 4
+					"r_eng_off_ch2",  // Бит 5
+					"r_eng_on_ch1",   // Бит 6
+					"r_eng_on_ch2"    // Бит 7
+				};
+
+				// APU_IN_REG_t - регистр пусков ВСУ и пожарной защиты
+				static std::vector<std::string> APU_BITS = 
+				{
+					"apu_fire_ch1",  // Бит 0
+					"apu_fire_ch2",  // Бит 1
+					"apu_off_ch1",   // Бит 2
+					"apu_off_ch2",   // Бит 3
+					"apu_on_ch1",    // Бит 4
+					"apu_on_ch2"     // Бит 5
+				};
+
+				// VALVES_OUT_REG_t - регистр управления запорными кранами
+				static std::vector<std::string> VALVES_OUT_BITS = 
+				{
+					"apu_vlv_close_cmd_ch1",      // Бит 0
+					"apu_vlv_close_cmd_ch2",      // Бит 1
+					"apu_vlv_open_cmd_ch1",       // Бит 2
+					"apu_vlv_open_cmd_ch2",       // Бит 3
+					"ct_refuel_vlv_open_cmd_ch1", // Бит 4
+					"ct_refuel_vlv_open_cmd_ch2", // Бит 5
+					"dv_closed_cmd",              // Бит 6
+					"dv_open_cmd",                // Бит 7
+					"lh_refuel_vlv_open_cmd_ch1", // Бит 8
+					"lh_refuel_vlv_open_cmd_ch2", // Бит 9
+					"rh_refuel_vlv_open_cmd_ch1", // Бит 10
+					"rh_refuel_vlv_open_cmd_ch2", // Бит 11
+					"xfeed_vlv_close_cmd_ch1",    // Бит 12
+					"xfeed_vlv_close_cmd_ch2",    // Бит 13
+					"xfeed_vlv_open_cmd_ch1",     // Бит 14
+					"xfeed_vlv_open_cmd_ch2"      // Бит 15
+				};
+
+				ImGui::Text("%d", find_s);
+				if (ImGui::BeginTable("##table_rk", 4, flags, ImVec2(-1, 0)))
+				{
+					ImGui::TableSetupColumn("Register", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+					ImGui::TableSetupColumn("Parameter", ImGuiTableColumnFlags_WidthFixed, 200.0f);
+					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+					ImGui::TableSetupColumn("Period", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+					ImGui::TableHeadersRow();
+					
+					if (rk_words.size() > 0)
+					{
+						RenderBufRK("Panel",      PANEL_BITS,      rk_words[0]);
+						RenderBufRK("Valves",     VALVES_BITS,     rk_words[1]);
+						RenderBufRK("Pumps",      PUMPS_BITS,      rk_words[2]);
+						RenderBufRK("Eng fire",   ENG_FIRE_BITS,   rk_words[3]);
+						RenderBufRK("APU",        APU_BITS,        rk_words[4]);
+						RenderBufRK("Valves out", VALVES_OUT_BITS, rk_words[5]);
+					}
+
+					ImGui::EndTable();
+				}
+
 				ImGui::EndTabItem();
 			}
 		}
@@ -445,7 +595,7 @@ void UI::DataProc(buffer_t* buf)
 
 	while (str.size() > 0 && ThreadsAllowed)
 	{
-		pos = str.find_first_of("|_"); // Ищем любой из разделителей
+		pos = str.find_first_of("|_r"); // Ищем любой из разделителей
 
 		if (pos == std::string::npos) // Если разделителей нет - выходим
 		{
@@ -461,31 +611,51 @@ void UI::DataProc(buffer_t* buf)
 			current_buffer = &tx_labels;
 		}
 
-		if (current_buffer != nullptr && pos > 0) // Добавил проверку pos > 0
+		if ((current_buffer != nullptr || str[pos] == 'r') && pos > 0) // Добавил проверку pos > 0
 		{
 			ss << std::string(str.begin(), str.begin() + pos - 1);
 			ss >> word;
 
 			channel = std::stoi(std::string(str.begin() + pos - 1, str.begin() + pos));
-
+			find_s = word;
 			str = std::string(str.begin() + pos + 1, str.end());
-
-			a429.word.value = word;
-
+			
 			mtx.lock();
-			(*current_buffer)[channel][a429.word.bits.label].word = a429.word;
-
-			auto& data = (*current_buffer)[channel][a429.word.bits.label];
-			if (data.stamp.time_since_epoch().count() > 0) // Проверка инициализации
+			if (str[pos] == 'r')
 			{
-				data.delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - data.stamp).count());
+				rk_words[channel].word = word;
+
+				auto& data = rk_words[channel];
+				if (data.stamp.time_since_epoch().count() > 0) // Проверка инициализации
+				{
+					data.delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - data.stamp).count());
+				}
+				data.stamp = stamp;
+
+				if (data.delta_buf.size() > 2)
+				{
+					data.delta = avg(data.delta_buf);
+					data.delta_buf.erase(data.delta_buf.begin());
+				}
 			}
-			data.stamp = stamp;
-
-			if (data.delta_buf.size() > 2)
+			else
 			{
-				data.delta = avg(data.delta_buf);
-				data.delta_buf.erase(data.delta_buf.begin());
+				a429.word.value = word;
+
+				(*current_buffer)[channel][a429.word.bits.label].word = a429.word;
+
+				auto& data = (*current_buffer)[channel][a429.word.bits.label];
+				if (data.stamp.time_since_epoch().count() > 0) // Проверка инициализации
+				{
+					data.delta_buf.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(stamp - data.stamp).count());
+				}
+				data.stamp = stamp;
+
+				if (data.delta_buf.size() > 2)
+				{
+					data.delta = avg(data.delta_buf);
+					data.delta_buf.erase(data.delta_buf.begin());
+				}
 			}
 			mtx.unlock();
 

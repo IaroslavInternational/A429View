@@ -18,7 +18,25 @@ typedef struct
 	a429_word_t word;
 } a429_flow_t;
 
+typedef struct
+{
+	std::vector<long long> delta_buf;
+	long long delta;
+	std::chrono::steady_clock::time_point stamp;
+	uint32_t word;
+} rk_flow_t;
+
+/*
+* channel
+*	lbl, word
+*/
 using a429_buf_t = std::map<uint32_t, std::map<uint32_t, a429_flow_t>>;
+
+/*
+* word num
+*	value
+*/
+using rk_buf_t   = std::map<uint32_t, rk_flow_t>;
 
 class UI
 {
@@ -47,4 +65,6 @@ private:
 private:
 	a429_buf_t rx_labels;
 	a429_buf_t tx_labels;
+	rk_buf_t   rk_words;
+	uint32_t find_s = 0;
 };
