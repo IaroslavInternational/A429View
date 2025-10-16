@@ -79,7 +79,7 @@ Window::Window(const std::wstring& name, int x, int y)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
-    ImGui::GetIO().Fonts->AddFontFromFileTTF("Fonts/segoeui.ttf", 18.0f, NULL, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("Fonts/Ubuntu-L.ttf", 18.0f, NULL, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
 
     LOG("Create window:\n");
     LOG_T("Size", std::to_string(x) + "x" + std::to_string(y));
@@ -219,17 +219,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         minMaxInfo->ptMinTrackSize.y = 1100;
         return 0;
     }
-
-    case WM_NCHITTEST:
-    {
-        // ѕозвол€ем перемещать окно за любую область
-        /*LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
-        if (hit == HTCLIENT) {
-            return HTCAPTION; //  лиентска€ область = заголовок дл€ перемещени€
-        }
-        return hit;*/
-    }
-
     case WM_SYSCOMMAND:
         if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
             return 0;

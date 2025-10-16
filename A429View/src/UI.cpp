@@ -53,6 +53,14 @@ UI::UI()
 	LOG("Colors are set\n");
 
 	LOG_END();
+
+	/*rk_words[0].word = 0xF;
+	rk_words[1].word = 0xF;
+	rk_words[2].word = 0xF;
+	rk_words[3].word = 0xF;
+	rk_words[4].word = 0xF;
+	rk_words[5].word = 0xF;
+	rx_labels[0][0244].word.value = 0244;*/
 }
 
 void UI::Render(float dt)
@@ -198,7 +206,7 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 					// Устанавливаем одинаковую ширину для всех колонок
 					for (int i = 0; i < 32; i++)
 					{
-						ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 20.0f); // Фиксированная ширина
+						ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 15.0f); // Фиксированная ширина
 					}
 
 					// Заголовок - номера битов 
@@ -255,20 +263,47 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 
 static void RenderBufRK(const std::string& name, const std::vector<std::string> bit_names, rk_flow_t flow)
 {
-	for (int i = 0; i < bit_names.size(); i++)
+	std::ostringstream oss;
+
+	static const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
+		ImGuiTableFlags_RowBg | ImGuiTableFlags_Reorderable;
+
+	if (ImGui::TreeNode(name.c_str()))
 	{
-		ImGui::TableNextRow();
-		ImGui::TableSetColumnIndex(0);
-		if (i == 0) ImGui::Text(name.c_str());
+		if (ImGui::BeginTable((name + "_t").c_str(), 2, flags, ImVec2(ImGui::GetCurrentWindow()->Size.x / 2, 0)))
+		{
+			oss << "Value (dt: " << flow.delta << " ms)";
 
-		ImGui::TableSetColumnIndex(1);
-		ImGui::Text("%s", bit_names[i].c_str());
+			ImGui::TableSetupColumn("Parameter", ImGuiTableColumnFlags_WidthFixed, 250.0f);
+			ImGui::TableSetupColumn(oss.str().c_str(), ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableHeadersRow();
 
-		ImGui::TableSetColumnIndex(2);
-		ImGui::Text("%d", (flow.word >> i) & 1);
+			for (int i = 0; i < bit_names.size(); i++)
+			{
+				ImGui::TableNextRow();
 
-		ImGui::TableSetColumnIndex(3);
-		if (i == 0) ImGui::Text("%d ms", flow.delta);
+				if (i == 0)
+				{
+					ImGui::TableSetColumnIndex(0);
+					ImGui::TextColored({0.7f, 0.2f, 0.2f, 1.0f}, "Word");
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::TextColored({ 0.7f, 0.2f, 0.2f, 1.0f }, "0x%X", flow.word);
+
+					continue;
+				}
+
+				ImGui::TableSetColumnIndex(0);
+				ImGui::Text("%s", bit_names[i].c_str());
+
+				ImGui::TableSetColumnIndex(1);
+				ImGui::Text("%d", (flow.word >> i) & 1);
+			}
+
+			ImGui::EndTable();
+		}
+
+		ImGui::TreePop();
 	}
 }
 
@@ -281,7 +316,7 @@ void UI::ShowTable()
 		ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus))
 	{
 		static const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
-			ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
+			ImGuiTableFlags_RowBg | ImGuiTableFlags_Reorderable;
 
 		if (ImGui::BeginTabBar("Buffers"))
 		{
@@ -439,26 +474,14 @@ void UI::ShowTable()
 					"xfeed_vlv_open_cmd_ch2"      // Бит 15
 				};
 
-				ImGui::Text("%d", find_s);
-				if (ImGui::BeginTable("##table_rk", 4, flags, ImVec2(-1, 0)))
+				if (rk_words.size() > 0)
 				{
-					ImGui::TableSetupColumn("Register", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-					ImGui::TableSetupColumn("Parameter", ImGuiTableColumnFlags_WidthFixed, 200.0f);
-					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 60.0f);
-					ImGui::TableSetupColumn("Period", ImGuiTableColumnFlags_WidthFixed, 60.0f);
-					ImGui::TableHeadersRow();
-					
-					if (rk_words.size() > 0)
-					{
-						RenderBufRK("Panel",      PANEL_BITS,      rk_words[0]);
-						RenderBufRK("Valves",     VALVES_BITS,     rk_words[1]);
-						RenderBufRK("Pumps",      PUMPS_BITS,      rk_words[2]);
-						RenderBufRK("Eng fire",   ENG_FIRE_BITS,   rk_words[3]);
-						RenderBufRK("APU",        APU_BITS,        rk_words[4]);
-						RenderBufRK("Valves out", VALVES_OUT_BITS, rk_words[5]);
-					}
-
-					ImGui::EndTable();
+					RenderBufRK("Panel",      PANEL_BITS,      rk_words[0]);
+					RenderBufRK("Valves",     VALVES_BITS,     rk_words[1]);
+					RenderBufRK("Pumps",      PUMPS_BITS,      rk_words[2]);
+					RenderBufRK("Eng fire",   ENG_FIRE_BITS,   rk_words[3]);
+					RenderBufRK("APU",        APU_BITS,        rk_words[4]);
+					RenderBufRK("Valves out", VALVES_OUT_BITS, rk_words[5]);
 				}
 
 				ImGui::EndTabItem();
@@ -498,7 +521,6 @@ void UI::SetPanelSizeAndPosition(int corner, float width, float height, float x_
 	ImGui::SetNextWindowPos(PanelPos, ImGuiCond_Always, PanelPivot);
 	ImGui::SetNextWindowSize(PanelSize);
 }
-
 
 std::list<int> UI::getAvailablePorts()
 {
@@ -548,6 +570,7 @@ void UI::CloseConnection()
 
 	rx_labels.clear();
 	tx_labels.clear();
+	rk_words.clear();
 }
 
 void UI::ReceiveData()
@@ -617,9 +640,12 @@ void UI::DataProc(buffer_t* buf)
 			ss >> word;
 
 			channel = std::stoi(std::string(str.begin() + pos - 1, str.begin() + pos));
-			find_s = word;
-			str = std::string(str.begin() + pos + 1, str.end());
 			
+			if (channel == 5 && str[pos] == 'r')
+			{
+				find_s = word;
+			}
+
 			mtx.lock();
 			if (str[pos] == 'r')
 			{
@@ -657,6 +683,8 @@ void UI::DataProc(buffer_t* buf)
 					data.delta_buf.erase(data.delta_buf.begin());
 				}
 			}
+
+			str = std::string(str.begin() + pos + 1, str.end());
 			mtx.unlock();
 
 			ss.str("");
