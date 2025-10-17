@@ -3,6 +3,7 @@
 #include "CoreLog.hpp"
 #include "Core/lib.hpp"
 #include <imgui_internal.h>
+#include <implot.h>
 
 #include <chrono>
 #include <sstream>
@@ -13,6 +14,17 @@
 #pragma execution_character_set("utf-8")  // Для отображения на русском языке
 
 using namespace std::literals::chrono_literals;
+
+bool show_hex = false;
+
+enum
+{
+	RX1 = 0, 
+	RX2, 
+	RX3, 
+	RX4, 
+	RX5
+};
 
 static long long avg(std::vector<long long> const& v)
 {
@@ -47,20 +59,26 @@ UI::UI()
 	colors[ImGuiCol_Header]         = ImVec4(0.42f, 0.13f, 0.13f, 0.31f);
 	colors[ImGuiCol_HeaderHovered]  = ImVec4(0.22f, 0.05f, 0.05f, 0.80f);
 	colors[ImGuiCol_HeaderActive]   = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
-	colors[ImGuiCol_PopupBg] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+	colors[ImGuiCol_PopupBg]		= ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
 
 	LOG_H("UI");
 	LOG("Colors are set\n");
 
 	LOG_END();
 
+	// test data
 	/*rk_words[0].word = 0xF;
 	rk_words[1].word = 0xF;
 	rk_words[2].word = 0xF;
 	rk_words[3].word = 0xF;
 	rk_words[4].word = 0xF;
-	rk_words[5].word = 0xF;
-	rx_labels[0][0244].word.value = 0244;*/
+	rk_words[5].word = 0xF
+	rx_labels[RX5][0247].word.value = 1668137127;
+	rx_labels[RX2][0244].word.value = 1627857060;
+	rx_labels[RX3][0244].word.value = 3775299748;
+	rx_labels[RX4][0377].word.value = 0377;
+	rx_labels[RX1][0236].word.value = 3787194526;
+	rx_labels[RX4][0126].word.value = 3758098518;*/
 }
 
 void UI::Render(float dt)
@@ -70,7 +88,7 @@ void UI::Render(float dt)
 	SetPanelSizeAndPosition(0, 0.25f, 1.0f, 0.0f, 0.0f);
 	ShowLeftPanel();
 
-	SetPanelSizeAndPosition(0, 0.75f, 0.95f, 0.25f, 0.0f);
+	SetPanelSizeAndPosition(0, 0.75f, 0.75f, 0.25f, 0.0f);
 	ShowTable();
 }
 
@@ -164,6 +182,11 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 			ImGui::TableSetColumnIndex(1);
 			oss << std::oct << label;
 			ImGui::Text("%s", oss.str().c_str());
+			if (ImGui::BeginItemTooltip())
+			{
+				ImGui::Text("Decimal %d", frame.word.bits.label);
+				ImGui::EndTooltip();
+			}
 			oss.str(""); oss.clear();
 
 			ImGui::TableSetColumnIndex(2);
@@ -171,9 +194,14 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 			ImGui::Text("%s", oss.str().c_str());
 			oss.str(""); oss.clear();
 
-			ImGui::TableSetColumnIndex(3);
+			ImGui::TableSetColumnIndex(3);			
 			oss << "0x" << std::hex << std::uppercase << frame.word.bits.data;
-			ImGui::Text("%s", oss.str().c_str());
+			ImGui::Text("%s", oss.str().c_str());		
+			if (ImGui::BeginItemTooltip())
+			{
+				ImGui::Text("Decimal %d", frame.word.bits.data);
+				ImGui::EndTooltip();
+			}
 			oss.str(""); oss.clear();
 
 			ImGui::TableSetColumnIndex(4);
@@ -186,7 +214,35 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 			ImGui::Text("%s", oss.str().c_str());
 			oss.str(""); oss.clear();
 
-			ImGui::TableSetColumnIndex(6);
+			ImGui::TableSetColumnIndex(6);	
+			if (channel == RX5 && label == 0247)
+			{
+				// total fuel
+				oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 29, 65536.0f);
+			}
+			else if ((channel == RX2 || channel == RX3) && label == 0244)
+			{
+				// fadec l/r flow
+				oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 0, 16384.0f);			
+			}
+			else if (channel == RX1 && label == 0236)
+			{
+				// ecu fuel flow
+				oss << lib::GetParam_BNR_float(frame.word.value, 28, 19, 0, 256.0f);
+			}
+			else if (channel == RX4 && label == 0126)
+			{
+				// ecu fuel flow
+				oss << lib::GetParam_BNR_float(frame.word.value, 14, 11, 29, 8.0f);
+			}
+			else
+			{
+				ImGui::Text("-");
+			}
+			if (oss.str().size() != 0) ImGui::Text("%s", oss.str().c_str());
+			oss.str(""); oss.clear();
+
+			ImGui::TableSetColumnIndex(7);
 			oss << std::dec << frame.delta << " ms";
 			ImGui::Text("%s", oss.str().c_str());
 			oss.str(""); oss.clear();
@@ -197,8 +253,7 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 			// Открываем попап при правом клике на строку
 			if (ImGui::BeginPopupContextItem("##row_context"))
 			{
-				constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
-					ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+				constexpr ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_RowBg;
 
 				// ТАБЛИЦА БИТОВ
 				if (ImGui::BeginTable("##bit_table", 32, flags, ImVec2(-1, 0)))
@@ -206,7 +261,7 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 					// Устанавливаем одинаковую ширину для всех колонок
 					for (int i = 0; i < 32; i++)
 					{
-						ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 15.0f); // Фиксированная ширина
+						ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 20.0f); // Фиксированная ширина
 					}
 
 					// Заголовок - номера битов 
@@ -325,7 +380,7 @@ void UI::ShowTable()
 				ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
 
-				if (ImGui::BeginTable("##table_rx", 7, flags, ImVec2(-1, 0)))
+				if (ImGui::BeginTable("##table_rx", 8, flags, ImVec2(-1, 0)))
 				{
 					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
 					ImGui::TableSetupColumn("Label",   ImGuiTableColumnFlags_WidthFixed, 75.0f);
@@ -333,6 +388,7 @@ void UI::ShowTable()
 					ImGui::TableSetupColumn("Data",    ImGuiTableColumnFlags_WidthFixed, 100.0f);
 					ImGui::TableSetupColumn("SSM",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Parity",  ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Float",   ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Period");
 					ImGui::TableHeadersRow();
 
