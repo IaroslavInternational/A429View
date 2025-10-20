@@ -17,15 +17,6 @@ using namespace std::literals::chrono_literals;
 
 bool show_hex = false;
 
-enum
-{
-	RX1 = 0, 
-	RX2, 
-	RX3, 
-	RX4, 
-	RX5
-};
-
 static long long avg(std::vector<long long> const& v)
 {
 	return v.empty() ? 0.0 : std::accumulate(v.begin(), v.end(), 0) / v.size();
@@ -215,29 +206,47 @@ static void RenderBufItems(const std::string& name, const a429_buf_t& buffer)
 			oss.str(""); oss.clear();
 
 			ImGui::TableSetColumnIndex(6);	
-			if (channel == RX5 && label == 0247)
+			if (name == "RX")
 			{
-				// total fuel
-				oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 29, 65536.0f);
-			}
-			else if ((channel == RX2 || channel == RX3) && label == 0244)
-			{
-				// fadec l/r flow
-				oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 0, 16384.0f);			
-			}
-			else if (channel == RX1 && label == 0236)
-			{
-				// ecu fuel flow
-				oss << lib::GetParam_BNR_float(frame.word.value, 28, 19, 0, 256.0f);
-			}
-			else if (channel == RX4 && label == 0126)
-			{
-				// ecu fuel flow
-				oss << lib::GetParam_BNR_float(frame.word.value, 14, 11, 29, 8.0f);
+				if (channel == RX5 && label == 0247)
+				{
+					// total fuel
+					oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 29, 65536.0f);
+				}
+				else if ((channel == RX2 || channel == RX3) && label == 0244)
+				{
+					// fadec l/r flow
+					oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 0, 16384.0f);
+				}
+				else if (channel == RX1 && label == 0236)
+				{
+					// ecu fuel flow
+					oss << lib::GetParam_BNR_float(frame.word.value, 28, 19, 0, 256.0f);
+				}
+				else if (channel == RX4 && label == 0126)
+				{
+					// ecu fuel flow
+					oss << lib::GetParam_BNR_float(frame.word.value, 14, 11, 29, 8.0f);
+				}
+				else
+				{
+					ImGui::Text("-");
+				}
 			}
 			else
 			{
-				ImGui::Text("-");
+				if (channel == TX3)
+				{
+					if (label == 0213 || label == 0214 || label == 0215 || label == 0244 || label == 0247)
+					{
+						// l/r eng, apu
+						oss << lib::GetParam_BNR_float(frame.word.value, 28, 15, 29, 32768.0f);
+					}
+					else if (label == 0216)
+					{
+						oss << lib::GetParam_BNR_float(frame.word.value, 28, 14, 29, 65536.0f);
+					}
+				}
 			}
 			if (oss.str().size() != 0) ImGui::Text("%s", oss.str().c_str());
 			oss.str(""); oss.clear();
@@ -406,7 +415,7 @@ void UI::ShowTable()
 				ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
 
-				if (ImGui::BeginTable("##table_tx", 7, flags, ImVec2(-1, 0)))
+				if (ImGui::BeginTable("##table_tx", 8, flags, ImVec2(-1, 0)))
 				{
 					ImGui::TableSetupColumn("Channel", ImGuiTableColumnFlags_WidthFixed, 75.0f);
 					ImGui::TableSetupColumn("Label",   ImGuiTableColumnFlags_WidthFixed, 75.0f);
@@ -414,6 +423,7 @@ void UI::ShowTable()
 					ImGui::TableSetupColumn("Data",    ImGuiTableColumnFlags_WidthFixed, 100.0f);
 					ImGui::TableSetupColumn("SSM",     ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Parity",  ImGuiTableColumnFlags_WidthFixed, 50.0f);
+					ImGui::TableSetupColumn("Float",   ImGuiTableColumnFlags_WidthFixed, 50.0f);
 					ImGui::TableSetupColumn("Period");
 					ImGui::TableHeadersRow();
 

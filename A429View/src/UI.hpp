@@ -10,6 +10,22 @@
 #include <mutex>
 #include <functional>
 
+enum
+{
+	RX1 = 0,
+	RX2,
+	RX3,
+	RX4,
+	RX5
+};
+
+enum
+{
+	TX1 = 0,
+	TX2,
+	TX3,
+};
+
 typedef struct
 {
 	std::vector<long long> delta_buf;
